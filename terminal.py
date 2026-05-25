@@ -1,44 +1,95 @@
 import pygame
+import time
 
 class Terminal:
-    pygame.init()
+    def __init__(self):
+        pygame.init()
 
-    width = 900
-    height = 800
-    running = True
+        self.width = 900
+        self.height = 800
+        self.screen = pygame.display.set_mode((self.width, self.height))
+        pygame.display.set_caption("Retro Terminal")
 
-    screen = pygame.display.set_mode((width, height))
+        self.font = pygame.font.Font(None, 28)
+        
+        self.BG_COLOR = pygame.Color(10, 10, 10)
+        self.TEXT_COLOR = pygame.Color(50, 205, 50)
+        
+        self.running = True
+        self.prompt = "> "
+        self.user_text = ""
+        
+        self.history = ["Welcome to the Terminal.", "Type 'clear' to reset."]
+        self.line_spacing = 30
+        
+        self.cursor_visible = True
+        self.last_cursor_toggle = time.time()
+        self.cursor_interval = 0.5
 
-    font = pygame.font.Font(None, 32)
-    BOX_COLOR = pygame.Color("lightskyblue3")
-    TEXT_COLOR = pygame.Color("white")
+    def execute_command(self, command):
+        """Process the command entered by the user."""
+        cmd = command.strip().lower()
+        if cmd == "clear":
+            self.history.clear()
+        elif cmd == "exit" or cmd == "quit":
+            self.running = False
+        elif cmd == "":
+            pass
+        else:
+            self.history.append(f"Executed: {command}")
 
-    input_rect = pygame.Rect(150, 150, 300, 40)
-    user_text = "Type Here..."
-
-    while running:
-        screen.fill((0, 0, 0))
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-            if event.type == pygame.TEXTINPUT:
-                user_text += event.text
+    def run(self):
+        while self.running:
+            self.screen.fill(self.BG_COLOR)
+            current_time = time.time()
             
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_3 or event.key == pygame.K_ESCAPE:
-                    running = False
-                
-                if event.key == pygame.K_BACKSPACE:
-                    user_text = user_text[:-1]
-                if event.key == pygame.K_RETURN:
-                    user_text += "\n"
-                
-        text_surface = font.render(user_text, True, TEXT_COLOR)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
 
-        pygame.draw.rect(screen, BOX_COLOR, input_rect, 2)
-        screen.blit(text_surface, (5, 5))
+                elif event.type == pygame.TEXTINPUT:
+                    self.user_text += event.text
+                
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.user_text = self.user_text[:-1]
+                        
+                    elif event.key == pygame.K_RETURN:
+                        self.history.append(self.prompt + self.user_text)
+                        self.execute_command(self.user_text)
+                        self.user_text = ""
+
+            if current_time - self.last_cursor_toggle > self.cursor_interval:
+                self.cursor_visible = not self.cursor_visible
+                self.last_cursor_toggle = current_time
+
+            current_y = self.height - 60 
             
-        pygame.display.update()
+            for line in reversed(self.history):
+                if current_y < 10: # Stop drawing if we run off the top of the screen
+                    break
+                hist_surface = self.font.render(line, True, self.TEXT_COLOR)
+                self.screen.blit(hist_surface, (15, current_y))
+                current_y -= self.line_spacing
 
-    pygame.quit()
+            input_y = self.height - 40
+            full_input_string = self.prompt + self.user_text
+            input_surface = self.font.render(full_input_string, True, self.TEXT_COLOR)
+            self.screen.blit(input_surface, (15, input_y))
+
+            if self.cursor_visible:
+                text_width, _ = self.font.size(full_input_string)
+                cursor_x = 15 + text_width
+                
+                pygame.draw.line(self.screen, self.TEXT_COLOR, (cursor_x, input_y), (cursor_x, input_y + 20), 2)
+                
+            pygame.display.update()
+
+        pygame.quit()
+
+if __name__ == "__main__":
+    terminal = Terminal()
+    terminal.run()
