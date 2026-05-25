@@ -9,7 +9,7 @@ import random
 pygame.init()
 
 # =============================================================================
-# CONFIGURATION  —  tweak these per game
+# CONFIGURATION  —  tweak these
 # =============================================================================
 
 WINDOW_W    = 1000
@@ -99,6 +99,17 @@ camera_y = 0
 def clamp(value, low, high):
     return max(low, min(value, high))
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+# =============================================================================
+# ACTION LOGIC
+# =============================================================================
+
+# (action, direction, quantity)
+
+actions = []
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # =============================================================================
 # CHARACTER CLASS
@@ -180,10 +191,6 @@ class Character:
         if tx < 0 or ty < 0 or ty >= len(tile_map) or tx >= len(tile_map[0]):
             return -1
         return tile_map[ty][tx]
-
-    def get_tile_at_world(self, px, py):
-        """Return the tile code at world-pixel position (px, py)."""
-        return self.get_tile_at_grid(int(px / TILE_SIZE), int(py / TILE_SIZE))
 
     def set_tile(self, tx, ty, code):
         """Update the data grid and image cache at grid position (tx, ty)."""
@@ -413,61 +420,61 @@ while running:
     pygame.time.delay(1000 // TARGET_FPS)
     screen.fill((0, 0, 0))
 
-    # ── Input ─────────────────────────────────────────────────────────────────
-    keys = pygame.key.get_pressed()
-    dx, dy = 0, 0
-    if keys[pygame.K_LEFT]:     dx -= 1
-    if keys[pygame.K_RIGHT]:    dx += 1
-    if keys[pygame.K_UP]:       dy -= 1
-    if keys[pygame.K_DOWN]:     dy += 1
-    player.move(direction=(dx, dy))
+    # ── Action queue ──────────────────────────────────────────────────────────
+    directions = {"right": (1,0), "left": (-1,0), "up": (0,-1), "down": (0,1)}
+
+    if actions and actions[0][0] == "walk":
+        _, direction, quantity = actions[0]
+        player.move(direction=directions.get(direction, (0, 0)))
+        if quantity <= 1:
+            actions.pop(0)
+        else:
+            actions[0] = ("walk", direction, quantity - 1)
+    elif actions and actions[0][0] in ("build", "destroy"):
+        _, direction, hold = actions[0]
+        dir_vec = directions.get(direction, (0, 0))
+        hb = player.get_hitbox(player.x, player.y)
+        if   dir_vec == ( 1,  0): tx_raw, ty_raw = (hb.right  - 1) // TILE_SIZE + 1, hb.centery // TILE_SIZE
+        elif dir_vec == (-1,  0): tx_raw, ty_raw =  hb.left        // TILE_SIZE - 1,  hb.centery // TILE_SIZE
+        elif dir_vec == ( 0,  1): tx_raw, ty_raw =  hb.centerx     // TILE_SIZE,      (hb.bottom - 1) // TILE_SIZE + 1
+        else:                     tx_raw, ty_raw =  hb.centerx     // TILE_SIZE,       hb.top    // TILE_SIZE - 1
+
+        if tx_raw < 0 or tx_raw >= len(tile_map[0]) or ty_raw < 0 or ty_raw >= len(tile_map):
+            player.action_tile = player.action_type = None
+            player.action_progress = 0
+            actions.pop(0)
+        else:
+            tx, ty = tx_raw, ty_raw
+            if player.action_tile != (tx, ty):
+                player.action_tile     = (tx, ty)
+                player.action_type     = actions[0][0]
+                player.action_progress = 0
+            if dir_vec[0] > 0:   player.facing = "right"
+            elif dir_vec[0] < 0: player.facing = "left"
+            player.img = player.sprites[f"{player.facing}1"]
+            if hold <= 1:
+                player.action_tile     = player.action_type = None
+                player.action_progress = 0
+                actions.pop(0)
+            else:
+                actions[0] = (actions[0][0], direction, hold - 1)
 
     # ── Events ────────────────────────────────────────────────────────────────
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            mx, my     = event.pos
-            clicked_tx = int((mx + camera_x) / TILE_SIZE)
-            clicked_ty = int((my + camera_y) / TILE_SIZE)
-
-            if (clicked_tx, clicked_ty) in player.get_adjacent_tiles(player.x, player.y):
-                tile_val  = player.get_tile_at_grid(clicked_tx, clicked_ty)
-                tile_rect = pygame.Rect(clicked_tx * TILE_SIZE, clicked_ty * TILE_SIZE,
-                                        TILE_SIZE, TILE_SIZE)
-                blocked   = tile_rect.colliderect(player.get_hitbox(player.x, player.y))
-
-                if tile_val == TILE_SAND and player.num_items > 0 and not blocked:
-                    player.action_tile     = (clicked_tx, clicked_ty)
-                    player.action_type     = "build"
-                    player.action_progress = 0
-                elif tile_val == TILE_WALL:
-                    player.action_tile     = (clicked_tx, clicked_ty)
-                    player.action_type     = "destroy"
-                    player.action_progress = 0
-
-        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            player.action_tile     = None
-            player.action_type     = None
-            player.action_progress = 0
-
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_b:
                 debug = not debug
 
     # ── Hold-to-act (build / destroy) ─────────────────────────────────────────
-    if player.action_tile and pygame.mouse.get_pressed()[0]:
+    if player.action_tile and actions and actions[0][0] in ("build", "destroy"):
         atx, aty  = player.action_tile
-        in_range  = (atx, aty) in player.get_adjacent_tiles(player.x, player.y)
         tile_val  = player.get_tile_at_grid(atx, aty)
-        tile_rect = pygame.Rect(atx * TILE_SIZE, aty * TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
-        if not in_range:
-            player.action_tile = player.action_type = None
-            player.action_progress = 0
 
-        elif player.action_type == "destroy" and tile_val == TILE_WALL:
+        if player.action_type == "destroy" and tile_val == TILE_WALL:
             player.action_progress = min(ACTION_THRESHOLD,
                                          player.action_progress + player.destroy_power)
             if player.action_progress >= ACTION_THRESHOLD:
@@ -476,24 +483,22 @@ while running:
                 player.num_items  += 1
                 player.action_tile = player.action_type = None
                 player.action_progress = 0
+                actions.pop(0)
 
         elif player.action_type == "build" and tile_val == TILE_SAND and player.num_items > 0:
-            blocked = tile_rect.colliderect(player.get_hitbox(player.x, player.y))
-            if blocked:
+            player.action_progress = min(ACTION_THRESHOLD,
+                                         player.action_progress + player.build_power)
+            if player.action_progress >= ACTION_THRESHOLD:
+                player.set_tile(atx, aty, TILE_WALL)
+                player.items.pop()
+                player.num_items  -= 1
                 player.action_tile = player.action_type = None
                 player.action_progress = 0
-            else:
-                player.action_progress = min(ACTION_THRESHOLD,
-                                             player.action_progress + player.build_power)
-                if player.action_progress >= ACTION_THRESHOLD:
-                    player.set_tile(atx, aty, TILE_WALL)
-                    player.items.pop()
-                    player.num_items  -= 1
-                    player.action_tile = player.action_type = None
-                    player.action_progress = 0
+                actions.pop(0)
         else:
             player.action_tile = player.action_type = None
             player.action_progress = 0
+            actions.pop(0)
     else:
         player.action_progress = max(0, player.action_progress - 8)
         if player.action_progress == 0:
@@ -556,31 +561,22 @@ while running:
         ))
 
     # Tile action highlights
-    mx, my  = pygame.mouse.get_pos()
-    hov_tx  = int((mx + camera_x) / TILE_SIZE)
-    hov_ty  = int((my + camera_y) / TILE_SIZE)
-
-    for ctX, ctY in player.get_adjacent_tiles(player.x, player.y):
+    hb = player.get_hitbox(player.x, player.y)
+    for ctX, ctY in player.get_adjacent_tiles(hb.centerx, hb.centery):
         tile_val  = player.get_tile_at_grid(ctX, ctY)
         tile_rect = pygame.Rect(ctX * TILE_SIZE, ctY * TILE_SIZE, TILE_SIZE, TILE_SIZE)
         blocked   = tile_rect.colliderect(player.get_hitbox(player.x, player.y))
 
         if tile_val == TILE_SAND and player.num_items > 0:
-            fill   = (255,  50,  50,  50) if blocked else (0, 255, 100,  50)
-            border = (255,  50,  50)       if blocked else (0, 255, 100)
+            fill = (255,  50,  50,  50) if blocked else (0, 255, 100, 50)
         elif tile_val == TILE_WALL:
-            fill, border = (255, 165, 0, 50), (255, 165, 0)
+            fill = (255, 165, 0, 50)
         else:
-            fill, border = (100, 100, 100, 30), (100, 100, 100)
+            fill = (100, 100, 100, 30)
 
         overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
         pygame.draw.rect(overlay, fill, overlay.get_rect())
         screen.blit(overlay, (ctX * TILE_SIZE - camera_x, ctY * TILE_SIZE - camera_y))
-
-        if (hov_tx, hov_ty) == (ctX, ctY):
-            pygame.draw.rect(screen, border,
-                             (ctX * TILE_SIZE - camera_x, ctY * TILE_SIZE - camera_y,
-                              TILE_SIZE, TILE_SIZE), 3)
 
     # ── HUD ───────────────────────────────────────────────────────────────────
 
@@ -626,9 +622,8 @@ while running:
         for i, line in enumerate([
             f"pos:    ({int(player.x)}, {int(player.y)})",
             f"tile:   ({tx}, {ty})  val: {player.get_tile_at_grid(tx, ty)}",
-            f"mouse:  ({hov_tx}, {hov_ty})  val: {player.get_tile_at_grid(hov_tx, hov_ty)}",
             f"camera: ({int(camera_x)}, {int(camera_y)})",
-            f"facing: {player.facing}   dx:{dx:.2f} dy:{dy:.2f}",
+            f"facing: {player.facing}   queue: {actions[0] if actions else 'idle'}",
         ]):
             screen.blit(debug_font.render(line, True, (255, 255, 255)), (8, 8 + i * 20))
 
