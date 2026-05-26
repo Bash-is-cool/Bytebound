@@ -2,11 +2,11 @@ import pygame
 import time
 
 class Terminal:
-    def __init__(self):
+    def __init__(self, width = 900, height = 800):
         pygame.init()
 
-        self.width = 900
-        self.height = 800
+        self.width = width
+        self.height = height
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("Retro Terminal")
 
