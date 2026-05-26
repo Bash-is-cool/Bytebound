@@ -14,7 +14,6 @@ class Token:
 
 class Lexer:
     """Breaks raw text strings down into structural token sequence flows."""
-    # Added 'elif' and 'else' to the structural keywords group
     TOKEN_SPECIFICATION = [
         ('NUMBER',     r'\d+'),                     # Integer values
         ('COLON',      r':'),                       # Separation boundaries

@@ -1,5 +1,7 @@
 import math
 import pygame
+import os
+import sys
 import random
 import tkinter as tk
 import time
@@ -40,34 +42,44 @@ ACTION_THRESHOLD = 600
 # ASSETS  —  replace paths with your own sprites
 # =============================================================================
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 # Tile images
 tile_imgs = {
-    TILE_SAND: pygame.transform.scale(pygame.image.load("res/tiles/Sand.png"), (TILE_SIZE, TILE_SIZE)),
-    TILE_WALL: pygame.transform.scale(pygame.image.load("res/tiles/Wall.png"), (TILE_SIZE, TILE_SIZE)),
+    TILE_SAND: pygame.transform.scale(pygame.image.load(resource_path("res/tiles/Sand.png")), (TILE_SIZE, TILE_SIZE)),
+    TILE_WALL: pygame.transform.scale(pygame.image.load(resource_path("res/tiles/Wall.png")), (TILE_SIZE, TILE_SIZE)),
 }
 
 # Player animation frames: {direction + frame_index: Surface}
 player_sprites = {
-    "right1": pygame.transform.scale(pygame.image.load("res/sprites/player/Jawa_1.png"), (80, 80)),
-    "right2": pygame.transform.scale(pygame.image.load("res/sprites/player/Jawa_2.png"), (80, 80)),
-    "left1": pygame.transform.scale(pygame.image.load("res/sprites/player/Jawa_3.png"), (80, 80)),
-    "left2": pygame.transform.scale(pygame.image.load("res/sprites/player/Jawa_4.png"), (80, 80)),
+    "right1": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/player/Jawa_1.png")), (80, 80)),
+    "right2": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/player/Jawa_2.png")), (80, 80)),
+    "left1": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/player/Jawa_3.png")), (80, 80)),
+    "left2": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/player/Jawa_4.png")), (80, 80)),
 }
 
 # Enemy animation frames
 enemy_sprites = {
-    "right1": pygame.transform.scale(pygame.image.load("res/sprites/Jawa_5.png"), (80, 80)),
-    "right2": pygame.transform.scale(pygame.image.load("res/sprites/Jawa_6.png"), (80, 80)),
-    "left1": pygame.transform.scale(pygame.image.load("res/sprites/Jawa_7.png"), (80, 80)),
-    "left2": pygame.transform.scale(pygame.image.load("res/sprites/Jawa_8.png"), (80, 80)),
+    "right1": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/Jawa_5.png")), (80, 80)),
+    "right2": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/Jawa_6.png")), (80, 80)),
+    "left1": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/Jawa_7.png")), (80, 80)),
+    "left2": pygame.transform.scale(pygame.image.load(resource_path("res/sprites/Jawa_8.png")), (80, 80)),
 }
 
 # Item images (index 0–3 used by item "type" field)
 item_imgs = [
-    pygame.transform.scale(pygame.image.load("res/items/Scrap_0.png"), (100, 100)),
-    pygame.transform.scale(pygame.image.load("res/items/Scrap_1.png"), (100, 100)),
-    pygame.transform.scale(pygame.image.load("res/items/Scrap_2.png"), (100, 100)),
-    pygame.transform.scale(pygame.image.load("res/items/Scrap_3.png"), (100, 100)),
+    pygame.transform.scale(pygame.image.load(resource_path("res/items/Scrap_0.png")), (100, 100)),
+    pygame.transform.scale(pygame.image.load(resource_path("res/items/Scrap_1.png")), (100, 100)),
+    pygame.transform.scale(pygame.image.load(resource_path("res/items/Scrap_2.png")), (100, 100)),
+    pygame.transform.scale(pygame.image.load(resource_path("res/items/Scrap_3.png")), (100, 100)),
 ]
 
 # =============================================================================
